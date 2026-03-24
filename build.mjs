@@ -11,7 +11,7 @@ const buildOptions = {
   entryPoints: {
     "background/index": path.join(rootDir, "src/background/index.ts"),
     "content/index": path.join(rootDir, "src/content/index.ts"),
-    "sidepanel/index": path.join(rootDir, "src/sidepanel/index.ts")
+    "popup/index": path.join(rootDir, "src/popup/index.ts")
   },
   bundle: true,
   format: "iife",
@@ -65,4 +65,3 @@ if (watchMode) {
 } else {
   await runBuild();
 }
-

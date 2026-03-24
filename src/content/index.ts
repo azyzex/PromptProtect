@@ -394,27 +394,52 @@ async function openReviewModal(text: string, result: DetectionResult): Promise<"
     <style>${modalStyles}</style>
     <div class="pp-overlay" role="presentation">
       <div class="pp-dialog" role="dialog" aria-modal="true" aria-labelledby="pp-title">
-        <p class="pp-eyebrow">PromptProtect</p>
-        <h2 id="pp-title">Sensitive content detected before send</h2>
-        <p class="pp-copy">
-          ${result.summary.total} finding${result.summary.total === 1 ? "" : "s"} matched in ${site?.label ?? window.location.hostname}. Nothing is stored unless you proceed with redaction.
-        </p>
-
-        <div class="pp-summary">
-          <span class="pp-pill pp-pill--secret">${result.summary.secrets} secret${result.summary.secrets === 1 ? "" : "s"}</span>
-          <span class="pp-pill pp-pill--pii">${result.summary.pii} pii</span>
+        <div class="pp-hero">
+          <div>
+            <p class="pp-eyebrow">PromptProtect</p>
+            <h2 id="pp-title">Sensitive content detected before send</h2>
+            <p class="pp-copy">
+              ${result.summary.total} finding${result.summary.total === 1 ? "" : "s"} matched in ${site?.label ?? window.location.hostname}. Review the highlighted ranges, redact them, and keep the rest of your prompt intact.
+            </p>
+          </div>
+          <div class="pp-shield">Review</div>
         </div>
 
-        <div class="pp-preview">
-          ${buildHighlightedHtml(text, result.findings)}
+        <div class="pp-metrics">
+          <article class="pp-metric">
+            <span class="pp-metric__label">Secrets</span>
+            <strong>${result.summary.secrets}</strong>
+          </article>
+          <article class="pp-metric">
+            <span class="pp-metric__label">PII</span>
+            <strong>${result.summary.pii}</strong>
+          </article>
+          <article class="pp-metric">
+            <span class="pp-metric__label">Site</span>
+            <strong>${site?.label ?? window.location.hostname}</strong>
+          </article>
         </div>
 
-        <div class="pp-findings">
-          <div class="pp-section-title">Matched rules</div>
+        <div class="pp-block">
+          <div class="pp-block__top">
+            <span class="pp-section-title">Live Preview</span>
+            <span class="pp-inline-note">Highlighted ranges never leave this page.</span>
+          </div>
+          <div class="pp-preview">
+            ${buildHighlightedHtml(text, result.findings)}
+          </div>
+        </div>
+
+        <div class="pp-block">
+          <div class="pp-block__top">
+            <span class="pp-section-title">Matched Rules</span>
+            <span class="pp-inline-note">Stored logs include counts and rule labels only.</span>
+          </div>
           <ul class="pp-finding-list">${findingsHtml}</ul>
         </div>
 
         <div class="pp-actions">
+          <span class="pp-footer-note">Cancel keeps the draft untouched.</span>
           <button type="button" id="pp-cancel" class="pp-button pp-button--ghost">Cancel</button>
           <button type="button" id="pp-redact" class="pp-button pp-button--primary">Redact &amp; Send</button>
         </div>
@@ -460,7 +485,7 @@ const modalStyles = `
 
   * {
     box-sizing: border-box;
-    font-family: "Segoe UI", "SF Pro Text", system-ui, sans-serif;
+    font-family: "Aptos", "Segoe UI Variable Display", "SF Pro Display", system-ui, sans-serif;
   }
 
   .pp-overlay {
@@ -469,7 +494,9 @@ const modalStyles = `
     z-index: 2147483647;
     display: grid;
     place-items: center;
-    background: rgba(15, 23, 42, 0.56);
+    background:
+      radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 22%),
+      rgba(8, 12, 18, 0.62);
     padding: 20px;
   }
 
@@ -477,14 +504,35 @@ const modalStyles = `
     width: min(760px, 100%);
     max-height: min(88vh, 860px);
     overflow: auto;
+    border-radius: 28px;
+    background:
+      radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 28%),
+      radial-gradient(circle at top left, rgba(194, 65, 12, 0.12), transparent 24%),
+      linear-gradient(180deg, #fffdf9 0%, #fff8ef 100%);
+    color: #1f2937;
+    border: 1px solid rgba(31, 41, 55, 0.12);
+    box-shadow: 0 32px 100px rgba(10, 14, 21, 0.34);
+    padding: 24px;
+  }
+
+  .pp-hero,
+  .pp-actions,
+  .pp-block__top,
+  .pp-finding__top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .pp-hero {
+    padding: 18px;
     border-radius: 24px;
     background:
-      radial-gradient(circle at top right, rgba(234, 88, 12, 0.12), transparent 30%),
-      linear-gradient(180deg, #fffdf9 0%, #fff7ed 100%);
-    color: #1f2937;
-    border: 1px solid rgba(31, 41, 55, 0.14);
-    box-shadow: 0 28px 80px rgba(15, 23, 42, 0.32);
-    padding: 24px;
+      radial-gradient(circle at top left, rgba(95, 239, 223, 0.16), transparent 26%),
+      linear-gradient(145deg, #10141e 0%, #1b2230 60%, #13241e 100%);
+    color: white;
+    margin-bottom: 16px;
   }
 
   .pp-eyebrow {
@@ -492,31 +540,82 @@ const modalStyles = `
     text-transform: uppercase;
     letter-spacing: 0.14em;
     font-size: 12px;
-    color: #9a3412;
+    color: rgba(208, 255, 245, 0.8);
   }
 
   #pp-title {
-    margin: 8px 0;
-    font-size: 28px;
+    margin: 8px 0 10px;
+    font-size: 30px;
     line-height: 1.1;
+    max-width: 12ch;
   }
 
   .pp-copy {
-    margin: 0 0 18px;
-    color: #57534e;
+    margin: 0;
+    max-width: 50ch;
+    color: rgba(242, 247, 255, 0.8);
     line-height: 1.5;
   }
 
-  .pp-summary,
-  .pp-actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    align-items: center;
+  .pp-shield {
+    flex-shrink: 0;
+    padding: 14px 18px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.12);
+    color: white;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    backdrop-filter: blur(16px);
   }
 
-  .pp-summary {
+  .pp-metrics {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
     margin-bottom: 18px;
+  }
+
+  .pp-metric {
+    padding: 14px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.72);
+    border: 1px solid rgba(31, 41, 55, 0.08);
+    box-shadow: 0 14px 30px rgba(48, 34, 18, 0.08);
+  }
+
+  .pp-metric strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 20px;
+    line-height: 1.1;
+    word-break: break-word;
+  }
+
+  .pp-metric__label,
+  .pp-inline-note,
+  .pp-footer-note,
+  .pp-finding__source {
+    font-size: 12px;
+    color: #6b7280;
+  }
+
+  .pp-block {
+    margin-top: 16px;
+    padding: 14px;
+    border-radius: 22px;
+    border: 1px solid rgba(31, 41, 55, 0.08);
+    background: rgba(255, 255, 255, 0.68);
+    box-shadow: 0 14px 30px rgba(48, 34, 18, 0.07);
+  }
+
+  .pp-section-title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #4b5563;
   }
 
   .pp-pill,
@@ -544,6 +643,7 @@ const modalStyles = `
   }
 
   .pp-preview {
+    margin-top: 12px;
     border-radius: 18px;
     border: 1px solid rgba(31, 41, 55, 0.12);
     background: rgba(255, 255, 255, 0.88);
@@ -570,22 +670,10 @@ const modalStyles = `
     color: #9a3412;
   }
 
-  .pp-findings {
-    margin-top: 18px;
-  }
-
-  .pp-section-title {
-    margin-bottom: 10px;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #6b7280;
-  }
-
   .pp-finding-list {
     list-style: none;
     padding: 0;
-    margin: 0;
+    margin: 12px 0 0;
     display: grid;
     gap: 10px;
   }
@@ -598,16 +686,7 @@ const modalStyles = `
   }
 
   .pp-finding__top {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 8px;
     margin-bottom: 8px;
-  }
-
-  .pp-finding__source {
-    font-size: 12px;
-    color: #78716c;
   }
 
   .pp-finding__snippet {
@@ -620,6 +699,7 @@ const modalStyles = `
   .pp-actions {
     justify-content: flex-end;
     margin-top: 18px;
+    flex-wrap: wrap;
   }
 
   .pp-button {
@@ -637,7 +717,7 @@ const modalStyles = `
   }
 
   .pp-button--primary {
-    background: linear-gradient(135deg, #ea580c, #b91c1c);
+    background: linear-gradient(135deg, #0f766e, #0b9487);
     color: white;
   }
 
@@ -645,6 +725,18 @@ const modalStyles = `
     .pp-dialog {
       padding: 18px;
       border-radius: 20px;
+    }
+
+    .pp-hero,
+    .pp-actions,
+    .pp-block__top,
+    .pp-finding__top {
+      display: grid;
+      justify-content: stretch;
+    }
+
+    .pp-metrics {
+      grid-template-columns: 1fr;
     }
 
     #pp-title {

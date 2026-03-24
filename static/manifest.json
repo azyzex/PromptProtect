@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Blocks accidental secrets and PII from being sent to ChatGPT, Claude, and Gemini.",
   "minimum_chrome_version": "116",
-  "permissions": ["storage", "sidePanel"],
+  "permissions": ["storage"],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://chat.openai.com/*",
@@ -15,10 +15,8 @@
     "service_worker": "background/index.js"
   },
   "action": {
-    "default_title": "Open PromptProtect"
-  },
-  "side_panel": {
-    "default_path": "sidepanel.html"
+    "default_title": "Open PromptProtect",
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {
@@ -33,4 +31,3 @@
     }
   ]
 }
-

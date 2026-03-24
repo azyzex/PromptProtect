@@ -14,7 +14,7 @@ PromptProtect is a Chrome extension that helps stop accidental leaks to web-base
   - Emails and phone numbers
 - On-send interception with a review modal, highlighted matches, and `Redact & Send` / `Cancel`
 - Local-only event logs that store counts and rule labels, not raw sensitive text
-- Side Panel "security console" for toggles, custom regex rules, and recent findings
+- Premium popup dashboard for toggles, custom regex rules, and recent findings
 
 ## Quick Start
 
@@ -37,9 +37,9 @@ npm run build
 - Click `Load unpacked`
 - Select the repo's `dist` folder
 
-4. Open the PromptProtect side panel:
+4. Open the PromptProtect popup:
 
-- Click the PromptProtect toolbar action on a supported site
+- Click the PromptProtect toolbar action in Chrome
 
 ## Git Setup
 
@@ -70,4 +70,3 @@ git push -u origin main
 - PromptProtect only runs on a small manifest allowlist to keep permissions tight.
 - Custom rules are local regex patterns stored in extension storage.
 - The current allowlist UI lets you toggle supported hosts on and off. Expanding beyond those hosts requires updating the manifest host permissions.
-

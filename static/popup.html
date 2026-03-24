@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PromptProtect</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main class="popup-shell">
+      <section class="hero">
+        <div class="hero-top">
+          <div>
+            <p class="eyebrow">PromptProtect</p>
+            <h1>Shield every prompt before it leaves your browser.</h1>
+          </div>
+          <button id="master-toggle" type="button" class="power-chip"></button>
+        </div>
+
+        <p class="lede">
+          Local-only detection for secrets and PII across your LLM tabs. Fast, quiet, and built to interrupt the bad send.
+        </p>
+
+        <div class="hero-stats" id="hero-stats"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Guardrails</h2>
+          <span id="guardrail-caption" class="small-note"></span>
+        </div>
+        <div id="control-grid" class="control-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Coverage</h2>
+          <button id="clear-logs-button" type="button" class="micro-button">Clear logs</button>
+        </div>
+        <div id="site-grid" class="site-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Custom Rule Lab</h2>
+          <span class="small-note">Regex patterns stay local</span>
+        </div>
+
+        <form id="custom-rule-form" class="rule-form">
+          <input id="rule-label" name="label" type="text" maxlength="48" placeholder="Rule label" required />
+          <textarea id="rule-pattern" name="pattern" rows="3" placeholder="tok_[A-Za-z0-9]{24,}" required></textarea>
+
+          <div class="rule-row">
+            <select id="rule-category" name="category">
+              <option value="secret">Secret</option>
+              <option value="pii">PII</option>
+            </select>
+
+            <input id="rule-flags" name="flags" type="text" value="g" maxlength="6" placeholder="Flags" />
+
+            <button type="submit" class="primary-button">Add Rule</button>
+          </div>
+        </form>
+
+        <p id="form-status" class="form-status"></p>
+        <div id="custom-pattern-list" class="pattern-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Recent Flags</h2>
+          <span id="activity-caption" class="small-note"></span>
+        </div>
+        <div id="log-list" class="log-list"></div>
+      </section>
+    </main>
+
+    <script src="popup/index.js"></script>
+  </body>
+</html>
+

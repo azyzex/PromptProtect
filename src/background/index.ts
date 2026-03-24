@@ -12,16 +12,6 @@ chrome.runtime.onStartup.addListener(() => {
   void ensureDefaults();
 });
 
-chrome.action.onClicked.addListener((tab) => {
-  if (tab.windowId === undefined || !chrome.sidePanel?.open) {
-    return;
-  }
-
-  chrome.sidePanel.open({ windowId: tab.windowId }, () => {
-    void chrome.runtime.lastError;
-  });
-});
-
 chrome.runtime.onMessage.addListener((message: RuntimeRequest, _sender, sendResponse) => {
   void handleMessage(message)
     .then((response) => sendResponse(response))
@@ -191,4 +181,3 @@ async function appendLog(payload: AppendLogPayload): Promise<LogEntry> {
 
   return entry;
 }
-
