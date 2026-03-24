@@ -11,14 +11,15 @@ const buildOptions = {
   entryPoints: {
     "background/index": path.join(rootDir, "src/background/index.ts"),
     "content/index": path.join(rootDir, "src/content/index.ts"),
-    "popup/index": path.join(rootDir, "src/popup/index.ts")
+    "popup/index": path.join(rootDir, "src/popup/index.ts"),
+    "sidepanel/index": path.join(rootDir, "src/sidepanel/index.ts"),
   },
   bundle: true,
   format: "iife",
   outdir: outDir,
   target: "chrome116",
   sourcemap: true,
-  logLevel: "info"
+  logLevel: "info",
 };
 
 function cleanDist() {

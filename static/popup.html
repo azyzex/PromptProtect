@@ -12,16 +12,17 @@
         <div class="hero-top">
           <div>
             <p class="eyebrow">PromptProtect</p>
-            <h1>Shield every prompt before it leaves your browser.</h1>
+            <h1>Guard prompts, files, and paste events before they leak.</h1>
           </div>
           <button id="master-toggle" type="button" class="power-chip"></button>
         </div>
 
         <p class="lede">
-          Local-only detection for secrets and PII across your LLM tabs. Fast, quiet, and built to interrupt the bad send.
+          Local-only prompt hygiene for ChatGPT, Claude, and Gemini, with rewrite controls, analytics, and live page diagnostics.
         </p>
 
         <div class="hero-stats" id="hero-stats"></div>
+        <div class="hero-analytics" id="hero-analytics"></div>
       </section>
 
       <section class="panel">
@@ -34,32 +35,62 @@
 
       <section class="panel">
         <div class="panel-header">
-          <h2>Coverage</h2>
-          <button id="clear-logs-button" type="button" class="micro-button">Clear logs</button>
+          <h2>Site Profiles</h2>
+          <span class="small-note">Per-site strictness and rewrite behavior</span>
         </div>
         <div id="site-grid" class="site-grid"></div>
       </section>
 
       <section class="panel">
         <div class="panel-header">
+          <h2>Workspace Allowlist</h2>
+          <span class="small-note">Safe demo values and internal patterns</span>
+        </div>
+
+        <form id="workspace-allow-form" class="rule-form">
+          <input id="allow-label" name="label" type="text" maxlength="48" placeholder="Demo token pattern" required />
+          <textarea id="allow-pattern" name="pattern" rows="2" placeholder="demo_[A-Za-z0-9]{18,}" required></textarea>
+          <div class="rule-row">
+            <input id="allow-flags" name="flags" type="text" value="g" maxlength="6" placeholder="Flags" />
+            <button type="submit" class="primary-button">Add Allow Rule</button>
+          </div>
+        </form>
+
+        <p id="allow-status" class="form-status"></p>
+        <div id="workspace-allowlist" class="pattern-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Site Allow Rules</h2>
+          <span class="small-note">Exact matches allowed per site</span>
+        </div>
+        <p id="exact-allow-status" class="form-status"></p>
+        <div id="exact-allowlist" class="pattern-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
           <h2>Custom Rule Lab</h2>
-          <span class="small-note">Regex patterns stay local</span>
+          <span class="small-note">Company-specific tokens and PII</span>
         </div>
 
         <form id="custom-rule-form" class="rule-form">
           <input id="rule-label" name="label" type="text" maxlength="48" placeholder="Rule label" required />
           <textarea id="rule-pattern" name="pattern" rows="3" placeholder="tok_[A-Za-z0-9]{24,}" required></textarea>
 
-          <div class="rule-row">
+          <div class="rule-row rule-row--wide">
             <select id="rule-category" name="category">
               <option value="secret">Secret</option>
               <option value="pii">PII</option>
             </select>
 
             <input id="rule-flags" name="flags" type="text" value="g" maxlength="6" placeholder="Flags" />
-
+            <input id="rule-placeholder" name="placeholder" type="text" maxlength="48" placeholder="<TOKEN>" />
             <button type="submit" class="primary-button">Add Rule</button>
           </div>
+
+          <textarea id="rule-explanation" name="explanation" rows="2" placeholder="Optional explanation shown when this rule fires."></textarea>
         </form>
 
         <p id="form-status" class="form-status"></p>
@@ -68,8 +99,46 @@
 
       <section class="panel">
         <div class="panel-header">
+          <h2>Rule Packs</h2>
+          <span class="small-note">Import and export team rule bundles</span>
+        </div>
+        <div class="button-row">
+          <button id="load-starter-pack" type="button" class="micro-button">Load starter pack</button>
+          <button id="export-rule-pack" type="button" class="micro-button">Export current pack</button>
+        </div>
+        <textarea id="rule-pack-json" class="json-box" rows="6" placeholder='Paste a rule pack JSON here, then click "Import JSON".'></textarea>
+        <div class="button-row">
+          <button id="import-rule-pack" type="button" class="primary-button">Import JSON</button>
+        </div>
+        <p id="rule-pack-status" class="form-status"></p>
+        <div id="imported-rule-packs" class="pattern-list"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Prompt Test Lab</h2>
+          <span class="small-note">Dry-run scans without leaving the popup</span>
+        </div>
+        <textarea id="test-lab-input" class="lab-box" rows="8" placeholder="Paste a prompt, code snippet, or connection string to preview how PromptProtect will react."></textarea>
+        <div class="button-row" id="test-lab-modes"></div>
+        <div class="button-row">
+          <button id="run-test-lab" type="button" class="primary-button">Analyze Prompt</button>
+        </div>
+        <div id="test-lab-output" class="lab-output"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
+          <h2>Live Diagnostics</h2>
+          <button id="refresh-diagnostics" type="button" class="micro-button">Refresh</button>
+        </div>
+        <div id="diagnostics-panel" class="diagnostics-grid"></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-header">
           <h2>Recent Flags</h2>
-          <span id="activity-caption" class="small-note"></span>
+          <button id="clear-logs-button" type="button" class="micro-button">Clear logs</button>
         </div>
         <div id="log-list" class="log-list"></div>
       </section>
@@ -78,4 +147,3 @@
     <script src="popup/index.js"></script>
   </body>
 </html>
-

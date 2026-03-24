@@ -11,10 +11,12 @@ PromptProtect is a Chrome extension that helps stop accidental leaks to web-base
   - GitHub tokens
   - JWTs
   - PEM private key blocks
+  - Structured secret assignments, bearer tokens, and connection strings
   - Emails and phone numbers
-- On-send interception with a review modal, highlighted matches, and `Redact & Send` / `Cancel`
-- Local-only event logs that store counts and rule labels, not raw sensitive text
-- Premium popup dashboard for toggles, custom regex rules, and recent findings
+- On-paste and on-send interception with inline warnings, highlighted matches, and multiple rewrite modes
+- Attachment scanning for common text file types before send
+- Local-only event logs and analytics that store counts and rule labels, not raw sensitive text
+- Premium popup dashboard for per-site profiles, allowlists, rule packs, diagnostics, and a prompt test lab
 
 ## Quick Start
 
@@ -59,11 +61,11 @@ git push -u origin main
 
 ## Project Structure
 
-- `src/content`: composer detection, send interception, review modal
+- `src/content`: composer detection, paste and attachment scanning, inline warnings, review modal
 - `src/background`: storage and local telemetry coordination
-- `src/sidepanel`: settings, custom rules, and finding history UI
+- `src/popup`: popup console, analytics, diagnostics, rule packs, and test lab
 - `src/shared`: detection engine, redaction helpers, site definitions, shared types
-- `static`: `manifest.json` and side panel HTML/CSS
+- `static`: `manifest.json` and popup HTML/CSS
 
 ## Notes
 
