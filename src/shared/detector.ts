@@ -68,6 +68,67 @@ const BUILTIN_RULES: RuleDefinition[] = [
     contextKeywords: ["github", "token", "pat", "auth", "header"]
   },
   {
+    id: "gitlab-token",
+    label: "GitLab token",
+    category: "secret",
+    pattern: "\\bglpat-[A-Za-z0-9_-]{20,}\\b",
+    flags: "g",
+    source: "builtin",
+    explanation: "GitLab personal access tokens often start with glpat- followed by a long token body.",
+    placeholder: "<GITLAB_TOKEN>",
+    baseConfidence: 88,
+    contextKeywords: ["gitlab", "glpat", "token", "pat", "private token"]
+  },
+  {
+    id: "sendgrid-api-key",
+    label: "SendGrid API key",
+    category: "secret",
+    pattern: "\\bSG\\.[A-Za-z0-9_-]{22}\\.[A-Za-z0-9_-]{43}\\b",
+    flags: "g",
+    source: "builtin",
+    explanation: "SendGrid API keys often use the SG.<prefix>.<secret> token format.",
+    placeholder: "<SENDGRID_API_KEY>",
+    baseConfidence: 92,
+    contextKeywords: ["sendgrid", "sg.", "api key", "token"]
+  },
+  {
+    id: "twilio-account-sid",
+    label: "Twilio Account SID",
+    category: "secret",
+    pattern: "\\bAC[A-Za-z0-9]{32}\\b",
+    flags: "g",
+    source: "builtin",
+    explanation: "Twilio Account SIDs are 34-character identifiers starting with AC.",
+    placeholder: "<TWILIO_ACCOUNT_SID>",
+    baseConfidence: 64,
+    contextKeywords: ["twilio", "account sid", "twilio account"]
+  },
+  {
+    id: "twilio-api-key-sid",
+    label: "Twilio API Key SID",
+    category: "secret",
+    pattern: "\\bSK[A-Za-z0-9]{32}\\b",
+    flags: "g",
+    source: "builtin",
+    explanation: "Twilio API Key SIDs are 34-character identifiers starting with SK.",
+    placeholder: "<TWILIO_API_KEY_SID>",
+    baseConfidence: 64,
+    contextKeywords: ["twilio", "api key", "key sid", "twilio key"]
+  },
+  {
+    id: "twilio-auth-token",
+    label: "Twilio auth token",
+    category: "secret",
+    pattern: "\\b(?:TWILIO_AUTH_TOKEN|TWILIO_API_SECRET)\\s*[:=]\\s*[\"']?([A-Fa-f0-9]{32})[\"']?",
+    flags: "gi",
+    source: "builtin",
+    explanation: "This looks like a Twilio auth token (or API secret) assigned in a configuration line.",
+    placeholder: "<TWILIO_AUTH_TOKEN>",
+    baseConfidence: 90,
+    captureGroup: 1,
+    contextKeywords: ["twilio", "auth token", "api secret", "token"]
+  },
+  {
     id: "slack-token",
     label: "Slack token",
     category: "secret",
@@ -102,6 +163,44 @@ const BUILTIN_RULES: RuleDefinition[] = [
     placeholder: "<GOOGLE_API_KEY>",
     baseConfidence: 86,
     contextKeywords: ["google", "gcp", "maps", "api"]
+  },
+  {
+    id: "firebase-api-key",
+    label: "Firebase API key",
+    category: "secret",
+    pattern: "\\bAIza[0-9A-Za-z\\-_]{35}\\b",
+    flags: "g",
+    source: "builtin",
+    explanation: "Firebase client-side configs often include a Google-style API key; treat it as sensitive in prompts.",
+    placeholder: "<FIREBASE_API_KEY>",
+    baseConfidence: 82,
+    contextKeywords: ["firebase", "apikey", "api key", "config", "google"]
+  },
+  {
+    id: "gcp-service-account-private-key-id",
+    label: "GCP service account private_key_id",
+    category: "secret",
+    pattern: "\\\"private_key_id\\\"\\s*:\\s*\\\"([A-Fa-f0-9]{20,})\\\"",
+    flags: "g",
+    source: "builtin",
+    explanation: "This looks like the private_key_id field from a Google Cloud service account JSON key.",
+    placeholder: "<GCP_SERVICE_ACCOUNT_PRIVATE_KEY_ID>",
+    baseConfidence: 86,
+    captureGroup: 1,
+    contextKeywords: ["service_account", "private_key_id", "gcp", "google", "credential"]
+  },
+  {
+    id: "gcp-service-account-client-email",
+    label: "GCP service account client_email",
+    category: "secret",
+    pattern: "\\\"client_email\\\"\\s*:\\s*\\\"([^\\\"\\s]+@[^\\\"\\s]+\\.gserviceaccount\\.com)\\\"",
+    flags: "gi",
+    source: "builtin",
+    explanation: "This looks like the client_email field from a Google Cloud service account JSON key.",
+    placeholder: "<GCP_SERVICE_ACCOUNT_EMAIL>",
+    baseConfidence: 82,
+    captureGroup: 1,
+    contextKeywords: ["service_account", "client_email", "gcp", "google", "credential", "firebase"]
   },
   {
     id: "jwt",
@@ -159,7 +258,7 @@ const BUILTIN_RULES: RuleDefinition[] = [
     label: "Secret environment variable value",
     category: "secret",
     pattern:
-      "(?:^|[\\r\\n])\\s*(?:OPENAI_API_KEY|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|SLACK_BOT_TOKEN|STRIPE_SECRET_KEY|API_KEY|SECRET_KEY|ACCESS_TOKEN|AUTH_TOKEN|CLIENT_SECRET)\\s*=\\s*[\"']?([^\"'\\r\\n\\s]+)[\"']?",
+      "(?:^|[\\r\\n])\\s*(?:OPENAI_API_KEY|AWS_SECRET_ACCESS_KEY|GITHUB_TOKEN|GITLAB_TOKEN|GITLAB_PAT|GITLAB_PRIVATE_TOKEN|SLACK_BOT_TOKEN|STRIPE_SECRET_KEY|SENDGRID_API_KEY|TWILIO_AUTH_TOKEN|TWILIO_API_SECRET|TWILIO_API_KEY|TWILIO_ACCOUNT_SID|FIREBASE_API_KEY|AZURE_CLIENT_SECRET|AZURE_STORAGE_ACCOUNT_KEY|AZURE_STORAGE_CONNECTION_STRING|AZURE_SERVICEBUS_CONNECTION_STRING|API_KEY|SECRET_KEY|ACCESS_TOKEN|AUTH_TOKEN|CLIENT_SECRET)\\s*=\\s*[\"']?([^\"'\\r\\n\\s]+)[\"']?",
     flags: "gim",
     source: "builtin",
     explanation: "This looks like a real secret value assigned inside an .env-style configuration line.",
@@ -180,6 +279,46 @@ const BUILTIN_RULES: RuleDefinition[] = [
     baseConfidence: 91,
     captureGroup: 1,
     contextKeywords: ["database", "connection string", "password", "postgres", "mongodb", "mysql"]
+  },
+  {
+    id: "azure-storage-connection-string-key",
+    label: "Azure Storage connection string key",
+    category: "secret",
+    pattern:
+      "\\bDefaultEndpointsProtocol=https;AccountName=[^;\\s]+;AccountKey=([^;\\s]+);EndpointSuffix=core\\.windows\\.net\\b",
+    flags: "gi",
+    source: "builtin",
+    explanation: "Azure Storage connection strings embed an AccountKey credential value.",
+    placeholder: "<AZURE_STORAGE_ACCOUNT_KEY>",
+    baseConfidence: 92,
+    captureGroup: 1,
+    contextKeywords: ["azure", "storage", "accountkey", "connection string", "blob"]
+  },
+  {
+    id: "azure-servicebus-connection-string-key",
+    label: "Azure Service Bus connection string key",
+    category: "secret",
+    pattern: "\\bEndpoint=sb://[^;\\s]+;SharedAccessKeyName=[^;\\s]+;SharedAccessKey=([^;\\s]+)",
+    flags: "gi",
+    source: "builtin",
+    explanation: "Azure Service Bus connection strings embed a SharedAccessKey credential value.",
+    placeholder: "<AZURE_SERVICEBUS_SHARED_ACCESS_KEY>",
+    baseConfidence: 92,
+    captureGroup: 1,
+    contextKeywords: ["azure", "service bus", "sharedaccesskey", "connection string", "sb://"]
+  },
+  {
+    id: "azure-sas-token-sig",
+    label: "Azure SAS token signature",
+    category: "secret",
+    pattern: "\\bsv=\\d{4}-\\d{2}-\\d{2}[^\\s]*?(?:\\?|&)sig=([^&\\s]+)",
+    flags: "gi",
+    source: "builtin",
+    explanation: "Azure SAS URLs include a sig= parameter that functions like a credential.",
+    placeholder: "<AZURE_SAS_SIGNATURE>",
+    baseConfidence: 86,
+    captureGroup: 1,
+    contextKeywords: ["azure", "sas", "sig=", "storage", "blob"]
   },
   {
     id: "kv-secret-value",

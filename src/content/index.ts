@@ -39,12 +39,18 @@ interface PendingAttachmentScan {
 
 const MODAL_ROOT_ID = "promptprotect-modal-root";
 const CHIP_ROOT_ID = "promptprotect-inline-chip";
+const IGNORED_SELECTOR = `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`;
 
 let settingsCache: PromptProtectSettings | null = null;
 let modalOpen = false;
 let allowNextSubmission = false;
 let lastInlineScan: InlineScanSnapshot | null = null;
 let pageReady = false;
+
+let cachedComposer: ComposerElement | null = null;
+let cachedSendButton: HTMLElement | null = null;
+let uiObserver: MutationObserver | null = null;
+let uiRefreshTimer: number | null = null;
 
 const pendingAttachmentScans = new Map<string, PendingAttachmentScan>();
 const fileInputToKeys = new WeakMap<HTMLInputElement, string[]>();
@@ -74,8 +80,68 @@ async function bootstrap() {
 
   document.addEventListener("keydown", handleKeydown, true);
   document.addEventListener("click", handleClick, true);
+  document.addEventListener("submit", handleSubmit, true);
   document.addEventListener("paste", handlePaste, true);
   document.addEventListener("change", handleFileInputChange, true);
+
+  installUiObserver();
+}
+
+function clearUiRefreshTimer() {
+  if (uiRefreshTimer !== null) {
+    window.clearTimeout(uiRefreshTimer);
+    uiRefreshTimer = null;
+  }
+}
+
+function scheduleUiRefresh() {
+  clearUiRefreshTimer();
+
+  uiRefreshTimer = window.setTimeout(() => {
+    uiRefreshTimer = null;
+    refreshUiCache();
+  }, 75);
+}
+
+function refreshUiCache() {
+  const hostname = window.location.hostname;
+
+  const composer = findPreferredComposer(hostname, IGNORED_SELECTOR);
+  cachedComposer = composer && composer instanceof Element && document.contains(composer) ? composer : null;
+
+  if (composer && composer instanceof HTMLElement) {
+    const button = findNearestSendButton(composer, hostname, IGNORED_SELECTOR);
+    cachedSendButton = button && document.contains(button) ? button : null;
+    return;
+  }
+
+  const anyButton = findAnySendButton(hostname);
+  cachedSendButton = anyButton && document.contains(anyButton) ? anyButton : null;
+}
+
+function installUiObserver() {
+  refreshUiCache();
+
+  if (uiObserver) {
+    return;
+  }
+
+  uiObserver = new MutationObserver(() => scheduleUiRefresh());
+  const root = document.body ?? document.documentElement;
+
+  try {
+    uiObserver.observe(root, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["disabled", "aria-disabled"]
+    });
+  } catch {
+    // Ignore observer failures.
+  }
+
+  window.addEventListener("focusin", scheduleUiRefresh, true);
+  window.addEventListener("visibilitychange", scheduleUiRefresh, true);
 }
 
 async function getSettings(): Promise<PromptProtectSettings | null> {
@@ -130,16 +196,21 @@ async function handleKeydown(event: KeyboardEvent) {
     return;
   }
 
-  const composer = resolveComposer(event.target, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+  const composer =
+    resolveComposer(event.target, window.location.hostname, IGNORED_SELECTOR) ??
+    (cachedComposer && cachedComposer instanceof Element && document.contains(cachedComposer) ? cachedComposer : null);
 
   if (!composer) {
     return;
   }
 
+  const resolvedSendButton = findNearestSendButton(composer, window.location.hostname, IGNORED_SELECTOR);
+  const sendButton = resolvedSendButton ?? (cachedSendButton && document.contains(cachedSendButton) ? cachedSendButton : null);
+
   await inspectSubmission({
     trigger: "keyboard",
     composer,
-    sendButton: findNearestSendButton(composer, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`),
+    sendButton,
     event
   });
 }
@@ -154,15 +225,18 @@ async function handleClick(event: MouseEvent) {
     return;
   }
 
-  const sendButton = resolveSendButton(event.target, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+  const sendButton =
+    resolveSendButton(event.target, window.location.hostname, IGNORED_SELECTOR) ??
+    (cachedSendButton && document.contains(cachedSendButton) ? cachedSendButton : null);
 
   if (!sendButton) {
     return;
   }
 
   const composer =
-    resolveComposer(document.activeElement, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`) ??
-    findPreferredComposer(window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+    resolveComposer(document.activeElement, window.location.hostname, IGNORED_SELECTOR) ??
+    (cachedComposer && cachedComposer instanceof Element && document.contains(cachedComposer) ? cachedComposer : null) ??
+    findPreferredComposer(window.location.hostname, IGNORED_SELECTOR);
 
   if (!composer) {
     return;
@@ -170,6 +244,41 @@ async function handleClick(event: MouseEvent) {
 
   await inspectSubmission({
     trigger: "click",
+    composer,
+    sendButton,
+    event
+  });
+}
+
+async function handleSubmit(event: Event) {
+  if (allowNextSubmission) {
+    allowNextSubmission = false;
+    return;
+  }
+
+  if (modalOpen || event.defaultPrevented) {
+    return;
+  }
+
+  const composer =
+    resolveComposer(document.activeElement, window.location.hostname, IGNORED_SELECTOR) ??
+    (cachedComposer && cachedComposer instanceof Element && document.contains(cachedComposer) ? cachedComposer : null) ??
+    findPreferredComposer(window.location.hostname, IGNORED_SELECTOR);
+
+  if (!composer) {
+    return;
+  }
+
+  const submitEvent = event as SubmitEvent;
+  const submitter = submitEvent.submitter ?? null;
+  const resolvedSendButton = submitter ? resolveSendButton(submitter, window.location.hostname, IGNORED_SELECTOR) : null;
+  const sendButton =
+    resolvedSendButton ??
+    (composer instanceof HTMLElement ? findNearestSendButton(composer, window.location.hostname, IGNORED_SELECTOR) : null) ??
+    (cachedSendButton && document.contains(cachedSendButton) ? cachedSendButton : null);
+
+  await inspectSubmission({
+    trigger: "keyboard",
     composer,
     sendButton,
     event
@@ -206,8 +315,8 @@ async function handlePaste(event: ClipboardEvent) {
       });
 
       const composer =
-        resolveComposer(event.target, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`) ??
-        findPreferredComposer(window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+        resolveComposer(event.target, window.location.hostname, IGNORED_SELECTOR) ??
+        findPreferredComposer(window.location.hostname, IGNORED_SELECTOR);
 
       if (composer && settings.showInlineWarnings) {
         inlineChip.show(composer, `${result.summary.total} pasted item${result.summary.total === 1 ? "" : "s"} look sensitive. Review before send.`);
@@ -222,7 +331,7 @@ async function handlePaste(event: ClipboardEvent) {
       const aggregate = await scanAttachmentFiles(files, `paste:${crypto.randomUUID()}`);
 
       if (aggregate > 0) {
-        const composer = findPreferredComposer(window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+        const composer = findPreferredComposer(window.location.hostname, IGNORED_SELECTOR);
 
         if (composer && settings.showInlineWarnings) {
           inlineChip.show(composer, `${aggregate} attachment finding${aggregate === 1 ? "" : "s"} detected. PromptProtect will review attachments before send.`);
@@ -271,7 +380,7 @@ async function handleFileInputChange(event: Event) {
   fileInputToKeys.set(target, nextKeys);
 
   if (aggregate > 0 && settings.showInlineWarnings) {
-    const composer = findPreferredComposer(window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+    const composer = findPreferredComposer(window.location.hostname, IGNORED_SELECTOR);
 
     if (composer) {
       inlineChip.show(composer, `${aggregate} attachment finding${aggregate === 1 ? "" : "s"} detected. PromptProtect will block send for review.`);
@@ -587,7 +696,7 @@ function removeAttachmentFindingFromState(finding: AttachmentFinding) {
 }
 
 function buildPageDiagnostics(): PageDiagnostics {
-  const composer = findPreferredComposer(window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`);
+  const composer = findPreferredComposer(window.location.hostname, IGNORED_SELECTOR);
   const profile = settingsCache?.siteProfiles[window.location.hostname] ?? null;
 
   return {
@@ -595,7 +704,7 @@ function buildPageDiagnostics(): PageDiagnostics {
     hostname: window.location.hostname,
     siteLabel: getSupportedSiteForHostname(window.location.hostname)?.label ?? null,
     composerFound: Boolean(composer),
-    sendButtonFound: Boolean(composer ? findNearestSendButton(composer, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`) : findAnySendButton(window.location.hostname)),
+    sendButtonFound: Boolean(composer ? findNearestSendButton(composer, window.location.hostname, IGNORED_SELECTOR) : findAnySendButton(window.location.hostname)),
     pendingAttachmentFlags: aggregateAttachmentFindings().length,
     lastInlineScan,
     profile
@@ -612,7 +721,7 @@ async function submitWithoutChanges(composer: ComposerElement, sendButton: HTMLE
     sendButton && document.contains(sendButton)
       ? sendButton
       : fallbackComposer
-        ? findNearestSendButton(fallbackComposer, window.location.hostname, `#${MODAL_ROOT_ID}, #${CHIP_ROOT_ID}`)
+        ? findNearestSendButton(fallbackComposer, window.location.hostname, IGNORED_SELECTOR)
         : null;
 
   if (button) {
