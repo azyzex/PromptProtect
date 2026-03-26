@@ -1,22 +1,23 @@
 :root {
-  color-scheme: light;
-  --bg-1: #f3efe7;
-  --bg-2: #efe6da;
-  --panel: rgba(255, 251, 247, 0.84);
-  --panel-strong: rgba(255, 255, 255, 0.92);
-  --stroke: rgba(29, 31, 35, 0.1);
-  --text: #181b20;
-  --muted: #666257;
-  --ink-soft: #4a4d55;
-  --accent: #0f766e;
-  --accent-soft: rgba(15, 118, 110, 0.12);
-  --secret: #b42318;
-  --secret-soft: rgba(180, 35, 24, 0.12);
-  --pii: #c2410c;
-  --pii-soft: rgba(194, 65, 12, 0.12);
-  --neutral-soft: rgba(51, 65, 85, 0.08);
-  --shadow-lg: 0 22px 50px rgba(48, 34, 18, 0.16);
-  --shadow-md: 0 14px 30px rgba(48, 34, 18, 0.1);
+  color-scheme: dark;
+  /* ChatGPT dark-ish theme surfaces */
+  --bg-1: #343541;
+  --bg-2: #343541;
+  --panel: #40414f;
+  --panel-strong: #40414f;
+  --stroke: rgba(236, 236, 241, 0.12);
+  --text: #ececf1;
+  --muted: rgba(236, 236, 241, 0.64);
+  --ink-soft: rgba(236, 236, 241, 0.78);
+  --accent: #10a37f;
+  --accent-soft: rgba(16, 163, 127, 0.16);
+  --secret: #ef4444;
+  --secret-soft: rgba(239, 68, 68, 0.16);
+  --pii: #f59e0b;
+  --pii-soft: rgba(245, 158, 11, 0.16);
+  --neutral-soft: rgba(236, 236, 241, 0.08);
+  --shadow-lg: 0 18px 40px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 10px 22px rgba(0, 0, 0, 0.26);
   font-family: "Aptos", "Segoe UI Variable Display", "SF Pro Display", system-ui, sans-serif;
 }
 
@@ -35,10 +36,7 @@ body {
 
 body {
   color: var(--text);
-  background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 34%),
-    radial-gradient(circle at top right, rgba(194, 65, 12, 0.12), transparent 28%),
-    linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  background: linear-gradient(180deg, var(--bg-1), var(--bg-2));
 }
 
 .popup-shell {

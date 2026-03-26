@@ -1,4 +1,4 @@
-import { STORAGE_KEYS } from "../shared/defaults";
+import { DEFAULT_SETTINGS, STORAGE_KEYS } from "../shared/defaults";
 import { detectSensitiveContent } from "../shared/detector";
 import { buildReplacementPreviewHtml, redactionModeLabel } from "../shared/redaction";
 import { runtimeApi } from "../shared/runtime";
@@ -57,9 +57,14 @@ let testLabMode: RedactionMode = "placeholder";
 void init();
 
 async function init() {
-  const [loadedSettings, loadedLogs] = await Promise.all([runtimeApi.getSettings(), runtimeApi.getLogs()]);
-  settings = loadedSettings;
-  logs = loadedLogs;
+  try {
+    const [loadedSettings, loadedLogs] = await Promise.all([runtimeApi.getSettings(), runtimeApi.getLogs()]);
+    settings = loadedSettings;
+    logs = loadedLogs;
+  } catch {
+    settings = DEFAULT_SETTINGS;
+    logs = [];
+  }
 
   bindListeners();
   render();
@@ -264,6 +269,77 @@ function bindListeners() {
       await saveSettings({
         exactAllowRules: settings.exactAllowRules.filter((rule) => rule.id !== id)
       });
+      return;
+    }
+
+    const rule = settings.exactAllowRules.find((item) => item.id === id);
+
+    if (!rule) {
+      return;
+    }
+
+    const extendFrom = (expiresAt: string | undefined, deltaMs: number): string => {
+      const now = Date.now();
+      const base = expiresAt && !Number.isNaN(Date.parse(expiresAt)) ? Math.max(now, Date.parse(expiresAt)) : now;
+      return new Date(base + deltaMs).toISOString();
+    };
+
+    const stripTemporarySuffix = (label: string): string => label.replace(/\s*\(temporary[^)]*\)\s*$/i, "").trim();
+
+    if (action === "make-permanent") {
+      await saveSettings({
+        exactAllowRules: settings.exactAllowRules.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                expiresAt: undefined,
+                label: stripTemporarySuffix(item.label)
+              }
+            : item
+        )
+      });
+      return;
+    }
+
+    if (action === "extend-15m") {
+      await saveSettings({
+        exactAllowRules: settings.exactAllowRules.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                expiresAt: extendFrom(item.expiresAt, 15 * 60_000)
+              }
+            : item
+        )
+      });
+      return;
+    }
+
+    if (action === "extend-1h") {
+      await saveSettings({
+        exactAllowRules: settings.exactAllowRules.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                expiresAt: extendFrom(item.expiresAt, 60 * 60_000)
+              }
+            : item
+        )
+      });
+      return;
+    }
+
+    if (action === "extend-1d") {
+      await saveSettings({
+        exactAllowRules: settings.exactAllowRules.map((item) =>
+          item.id === id
+            ? {
+                ...item,
+                expiresAt: extendFrom(item.expiresAt, 24 * 60 * 60_000)
+              }
+            : item
+        )
+      });
     }
   });
 
@@ -446,10 +522,14 @@ function cycleRedactionMode(value: RedactionMode): RedactionMode {
 }
 
 async function saveSettings(partial: Partial<PromptProtectSettings>) {
-  settings = await runtimeApi.saveSettings({
-    ...settings,
-    ...partial
-  });
+  try {
+    settings = await runtimeApi.saveSettings({
+      ...settings,
+      ...partial
+    });
+  } catch {
+    // Keep current UI state if the background is temporarily unavailable.
+  }
   render();
 }
 
@@ -586,6 +666,16 @@ function renderExactAllowRules() {
           </div>
           <p class="meta">${escapeHtml(rule.hostname)} · ${escapeHtml(rule.ruleId)} · added ${escapeHtml(formatTimestamp(rule.createdAt))}${rule.expiresAt ? ` · expires ${escapeHtml(formatTimestamp(rule.expiresAt))}` : ""}</p>
           <div class="pattern-actions">
+            ${
+              rule.expiresAt
+                ? `
+                  <button type="button" class="pattern-action" data-exact-allow-action="extend-15m" data-exact-allow-id="${escapeHtml(rule.id)}">+15m</button>
+                  <button type="button" class="pattern-action" data-exact-allow-action="extend-1h" data-exact-allow-id="${escapeHtml(rule.id)}">+1h</button>
+                  <button type="button" class="pattern-action" data-exact-allow-action="extend-1d" data-exact-allow-id="${escapeHtml(rule.id)}">+1d</button>
+                  <button type="button" class="pattern-action" data-exact-allow-action="make-permanent" data-exact-allow-id="${escapeHtml(rule.id)}">Make permanent</button>
+                `
+                : ""
+            }
             <button type="button" class="pattern-action is-danger" data-exact-allow-action="remove" data-exact-allow-id="${escapeHtml(rule.id)}">Remove</button>
           </div>
         </article>

@@ -10,6 +10,16 @@ export function sendMessage<T>(message: RuntimeRequest): Promise<T> {
         return;
       }
 
+      if (
+        response &&
+        typeof response === "object" &&
+        "error" in (response as Record<string, unknown>) &&
+        typeof (response as Record<string, unknown>).error === "string"
+      ) {
+        reject(new Error((response as Record<string, unknown>).error as string));
+        return;
+      }
+
       resolve(response);
     });
   });

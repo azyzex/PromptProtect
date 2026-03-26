@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="light dark" />
+
+  <title>PromptProtect — Local prompt leak protection</title>
+  <meta name="description" content="PromptProtect helps detect secrets and sensitive data before you send prompts to AI chat sites. Runs locally in your browser." />
+
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg2: #0a0f1a;
+      --card: rgba(255, 255, 255, 0.06);
+      --card2: rgba(255, 255, 255, 0.08);
+      --border: rgba(255, 255, 255, 0.12);
+      --text: rgba(255, 255, 255, 0.92);
+      --muted: rgba(255, 255, 255, 0.72);
+      --muted2: rgba(255, 255, 255, 0.58);
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+      --accent: #7c5cff;
+      --accent2: #39d0ff;
+      --ok: #48e2a6;
+      --warn: #ffcc66;
+      --danger: #ff5c7a;
+      --radius: 18px;
+
+      --max: 1100px;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      --sans: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f7fb;
+        --bg2: #eef1f8;
+        --card: rgba(0, 0, 0, 0.04);
+        --card2: rgba(0, 0, 0, 0.06);
+        --border: rgba(0, 0, 0, 0.10);
+        --text: rgba(0, 0, 0, 0.88);
+        --muted: rgba(0, 0, 0, 0.66);
+        --muted2: rgba(0, 0, 0, 0.52);
+        --shadow: 0 18px 52px rgba(15, 23, 42, 0.16);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background:
+        radial-gradient(900px 400px at 20% 5%, color-mix(in oklab, var(--accent) 24%, transparent), transparent 70%),
+        radial-gradient(900px 420px at 85% 10%, color-mix(in oklab, var(--accent2) 20%, transparent), transparent 70%),
+        linear-gradient(180deg, var(--bg), var(--bg2));
+      line-height: 1.55;
+    }
+
+    a { color: inherit; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .wrap {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 28px 18px 56px;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      padding: 8px 0 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .brand svg { display: block; }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.2fr 0.8fr;
+      gap: 18px;
+      align-items: start;
+      padding: 18px 0 10px;
+    }
+
+    @media (max-width: 920px) {
+      .hero { grid-template-columns: 1fr; }
+    }
+
+    .card {
+      background: linear-gradient(180deg, var(--card), transparent 140%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .heroMain { padding: 22px 22px 18px; }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 4vw, 44px);
+      letter-spacing: -0.02em;
+      line-height: 1.12;
+    }
+
+    .subtitle {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 16px;
+      max-width: 60ch;
+    }
+
+    .ctaRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 18px;
+      align-items: center;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--card2);
+      color: var(--text);
+      font-weight: 650;
+      font-size: 14px;
+    }
+
+    .btnPrimary {
+      background: linear-gradient(135deg,
+        color-mix(in oklab, var(--accent) 62%, transparent),
+        color-mix(in oklab, var(--accent2) 44%, transparent));
+      border-color: color-mix(in oklab, var(--accent) 35%, var(--border));
+    }
+
+    .btn:hover { text-decoration: none; filter: brightness(1.06); }
+
+    .hint {
+      margin-top: 14px;
+      color: var(--muted2);
+      font-size: 13px;
+    }
+
+    .heroSide { padding: 22px; }
+
+    .sideTitle {
+      margin: 0;
+      font-size: 14px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted2);
+    }
+
+    .kv {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .kvRow {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 12px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--card) 82%, transparent);
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--card2) 80%, transparent);
+      flex: 0 0 auto;
+      font-family: var(--mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .kvText {
+      display: grid;
+      gap: 3px;
+    }
+
+    .kvText b { font-size: 14px; }
+    .kvText span { font-size: 13px; color: var(--muted); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    @media (max-width: 920px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+
+    .tile { padding: 16px; }
+
+    .tile h3 {
+      margin: 0;
+      font-size: 16px;
+      letter-spacing: -0.01em;
+    }
+
+    .tile p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .section {
+      margin-top: 18px;
+      padding: 18px 20px;
+    }
+
+    .section h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: -0.01em;
+    }
+
+    .section p { margin: 10px 0 0; color: var(--muted); }
+
+    .list {
+      margin: 12px 0 0;
+      padding-left: 18px;
+      color: var(--muted);
+    }
+
+    .list li { margin: 6px 0; }
+
+    .code {
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: color-mix(in oklab, var(--card2) 80%, transparent);
+      color: var(--text);
+      white-space: nowrap;
+    }
+
+    .footer {
+      margin-top: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 18px 2px 0;
+      color: var(--muted2);
+      font-size: 13px;
+    }
+
+    .hr {
+      height: 1px;
+      background: color-mix(in oklab, var(--border) 70%, transparent);
+      margin-top: 16px;
+    }
+
+    .tiny {
+      font-size: 12px;
+      color: var(--muted2);
+      margin: 0;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+    .danger { color: var(--danger); }
+
+    /* Nice focus rings */
+    :focus-visible {
+      outline: 3px solid color-mix(in oklab, var(--accent2) 50%, transparent);
+      outline-offset: 2px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div class="brand" aria-label="PromptProtect">
+        <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="4" y1="3" x2="24" y2="25" gradientUnits="userSpaceOnUse">
+              <stop stop-color="var(--accent)" stop-opacity="1"/>
+              <stop offset="1" stop-color="var(--accent2)" stop-opacity="1"/>
+            </linearGradient>
+          </defs>
+          <path d="M14 2.5c3.9 2.9 7.8 3.6 11 3.9 0 13.2-4.7 18.9-11 19.1C7.7 25.3 3 19.6 3 6.4c3.2-.3 7.1-1 11-3.9Z" fill="url(#g)" opacity="0.95"/>
+          <path d="M14 6.6c.7 0 1.3.6 1.3 1.3v5.2l3.4 3.4c.5.5.5 1.3 0 1.8-.5.5-1.3.5-1.8 0l-3.8-3.8a1.3 1.3 0 0 1-.4-.9V7.9c0-.7.6-1.3 1.3-1.3Z" fill="rgba(255,255,255,0.9)"/>
+        </svg>
+        <span>PromptProtect</span>
+      </div>
+
+      <div class="pill" title="Runs locally in your browser">
+        <span class="ok">●</span>
+        <span>Local scanning • No server</span>
+      </div>
+    </header>
+
+    <main class="hero">
+      <section class="card heroMain">
+        <h1>Catch secrets and sensitive data <span style="background: linear-gradient(135deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent;">before</span> you send prompts.</h1>
+        <p class="subtitle">
+          PromptProtect detects common secret and PII patterns in your prompt composer on supported AI chat sites and can block sending until you review and redact.
+          Everything runs locally in your browser.
+        </p>
+
+        <div class="ctaRow">
+          <!-- Update these links before publishing -->
+          <a class="btn btnPrimary" href="#install" aria-label="Install PromptProtect">
+            Install
+            <span aria-hidden="true">→</span>
+          </a>
+          <a class="btn" href="#privacy">Privacy policy</a>
+          <a class="btn" href="#source">Source</a>
+        </div>
+
+        <p class="hint">
+          Tip: If you’re publishing on Opera Add-ons, you can use this GitHub Pages site as your “Service website URL”.
+        </p>
+      </section>
+
+      <aside class="card heroSide">
+        <p class="sideTitle">At a Glance</p>
+        <div class="kv" role="list">
+          <div class="kvRow" role="listitem">
+            <div class="badge">01</div>
+            <div class="kvText">
+              <b>Runs locally</b>
+              <span>No remote server required for detection.</span>
+            </div>
+          </div>
+          <div class="kvRow" role="listitem">
+            <div class="badge">02</div>
+            <div class="kvText">
+              <b>Blocks accidental sends</b>
+              <span>Intercepts send actions and opens a review modal.</span>
+            </div>
+          </div>
+          <div class="kvRow" role="listitem">
+            <div class="badge">03</div>
+            <div class="kvText">
+              <b>Dashboard controls</b>
+              <span>Manage rules and settings from the extension UI.</span>
+            </div>
+          </div>
+        </div>
+      </aside>
+    </main>
+
+    <section class="grid" aria-label="Key features">
+      <div class="card tile">
+        <h3>Secret families</h3>
+        <p>Detects common API keys/tokens and other high-risk patterns (configurable).</p>
+      </div>
+      <div class="card tile">
+        <h3>Redaction workflow</h3>
+        <p>Review flagged text and apply quick redactions before sending.</p>
+      </div>
+      <div class="card tile">
+        <h3>Allow rules</h3>
+        <p>Temporarily allow specific detections when you know it’s safe.</p>
+      </div>
+    </section>
+
+    <section class="card section" id="install">
+      <h2>Install</h2>
+      <p>
+        Update the links below when your listing is live.
+      </p>
+      <ul class="list">
+        <li><b>Opera Add-ons:</b> <a href="#" id="operaLink">(add link)</a></li>
+        <li><b>Source:</b> <a href="#" id="sourceLink">(add link)</a></li>
+        <li><b>Support:</b> <a href="#" id="supportLink">(add link)</a></li>
+      </ul>
+      <div class="hr"></div>
+      <p class="tiny">
+        If you’re testing locally, load the unpacked extension from the build output folder <span class="code">dist/</span>.
+      </p>
+    </section>
+
+    <section class="card section" id="permissions">
+      <h2>Permissions & what they’re used for</h2>
+      <p>
+        PromptProtect requests browser permissions only to enable its core functionality.
+      </p>
+      <ul class="list">
+        <li><span class="code">storage</span> — store your settings and allow rules locally.</li>
+        <li><span class="code">tabs</span> — coordinate the dashboard UI and active tab context.</li>
+        <li><span class="code">host access</span> — run detection UI on supported sites.</li>
+        <li><span class="code">side panel / sidebar</span> — show the dashboard (Chrome side panel / Opera sidebar panel).</li>
+      </ul>
+    </section>
+
+    <section class="card section" id="privacy">
+      <h2>Privacy policy</h2>
+      <p>
+        <b>In short:</b> PromptProtect runs locally in your browser and is designed to avoid sending your prompt contents to any external server.
+      </p>
+      <ul class="list">
+        <li><b>Data collection:</b> No analytics or ad tracking is built in.</li>
+        <li><b>Prompt contents:</b> Detection happens locally; the extension does not intentionally transmit your prompt text off-device.</li>
+        <li><b>Local storage:</b> Settings and rules are stored via browser extension storage.</li>
+        <li><b>Third parties:</b> No selling or sharing of your prompt contents.</li>
+      </ul>
+      <div class="hr"></div>
+      <p class="tiny">
+        Note: When you use AI chat websites, those sites may send your text to their own servers. PromptProtect helps you catch sensitive information <i>before</i> you send it.
+      </p>
+    </section>
+
+    <section class="card section" id="source">
+      <h2>Source & builds</h2>
+      <p>
+        Suggested moderator-friendly build steps:
+      </p>
+      <ul class="list">
+        <li>Install Node.js (LTS recommended).</li>
+        <li>Run <span class="code">npm ci</span> (or <span class="code">npm install</span>).</li>
+        <li>Run <span class="code">npm run build</span>.</li>
+        <li>Build output: <span class="code">dist/</span>.</li>
+      </ul>
+    </section>
+
+    <footer class="footer">
+      <p class="tiny">© <span id="year"></span> PromptProtect. Built to reduce accidental data leaks.</p>
+      <p class="tiny">Contact/support: <a href="#" id="contact">(add support link)</a></p>
+    </footer>
+  </div>
+
+  <script>
+    // Fill in some defaults that you can quickly edit.
+    const year = document.getElementById('year');
+    if (year) year.textContent = String(new Date().getFullYear());
+
+    // Optional: update these three to your real URLs.
+    const links = {
+      opera: '#',
+      source: '#',
+      support: '#'
+    };
+
+    const operaLink = document.getElementById('operaLink');
+    const sourceLink = document.getElementById('sourceLink');
+    const supportLink = document.getElementById('supportLink');
+    const contact = document.getElementById('contact');
+
+    if (operaLink) operaLink.href = links.opera;
+    if (sourceLink) sourceLink.href = links.source;
+    if (supportLink) supportLink.href = links.support;
+    if (contact) contact.href = links.support;
+  </script>
+</body>
+</html>

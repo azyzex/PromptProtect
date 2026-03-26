@@ -461,8 +461,30 @@ function extractMatchSpan(result: RegExpExecArray, captureGroup?: number): { sta
 }
 
 function looksLikePhoneNumber(value: string): boolean {
+  const trimmed = value.trim();
+
+  if (looksLikeIpv4Address(trimmed)) {
+    return false;
+  }
+
   const digits = value.replace(/\D/g, "");
   return digits.length >= 10 && digits.length <= 15;
+}
+
+function looksLikeIpv4Address(value: string): boolean {
+  const match = value.match(/\b(\d{1,3}(?:\.\d{1,3}){3})\b/);
+
+  if (!match) {
+    return false;
+  }
+
+  const parts = match[1].split(".").map((part) => Number.parseInt(part, 10));
+
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part) || part < 0 || part > 255)) {
+    return false;
+  }
+
+  return true;
 }
 
 function buildWhyList(rule: RuleDefinition, context: string, confidence: number, spanLength: number): string[] {

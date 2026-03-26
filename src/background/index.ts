@@ -24,31 +24,42 @@ import type {
 
 const SUPPORTED_HOSTS = new Set(SUPPORTED_SITES.flatMap((site) => site.hostnames));
 
-function configureSidePanelBehavior() {
-  const sidePanel = (chrome as unknown as { sidePanel?: { setPanelBehavior?: (options: { openPanelOnActionClick: boolean }) => Promise<void> | void } }).sidePanel;
+function getSidePanelApi(): { open?: (options: { tabId?: number; windowId?: number }) => Promise<void> | void } | null {
+  const candidate = (chrome as unknown as { sidePanel?: unknown }).sidePanel;
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+  return candidate as { open?: (options: { tabId?: number; windowId?: number }) => Promise<void> | void };
+}
 
-  if (!sidePanel?.setPanelBehavior) {
-    return;
+chrome.action.onClicked.addListener(async (tab) => {
+  const sidePanel = getSidePanelApi();
+
+  if (sidePanel?.open && typeof tab?.windowId === "number") {
+    try {
+      const result = sidePanel.open({ windowId: tab.windowId });
+      if (result && typeof (result as Promise<void>).catch === "function") {
+        await result;
+      }
+      return;
+    } catch {
+      // Ignore: side panel not available in this runtime.
+    }
   }
 
   try {
-    const result = sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
-    if (result && typeof (result as Promise<void>).catch === "function") {
-      (result as Promise<void>).catch(() => null);
-    }
+    await chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel.html") });
   } catch {
-    // Ignore: side panel not available in this runtime.
+    // Ignore tab creation failures.
   }
-}
+});
 
 chrome.runtime.onInstalled.addListener(() => {
   void ensureDefaults();
-  configureSidePanelBehavior();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   void ensureDefaults();
-  configureSidePanelBehavior();
 });
 
 chrome.runtime.onMessage.addListener((message: RuntimeRequest, _sender, sendResponse) => {

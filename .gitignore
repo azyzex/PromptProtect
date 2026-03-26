@@ -1,4 +1,8 @@
 node_modules/
 dist/
 *.log
+*.pem
+*.crx
+*.zip
+project-structure.txt
 

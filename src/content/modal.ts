@@ -38,12 +38,55 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
   let composerFindings = [...input.composerFindings];
   let attachmentFindings = [...input.attachmentFindings];
   let previewMode = input.defaultMode;
+  let tempAllowTarget: { kind: "composer" | "attachment"; id: string } | null = null;
+  let tempAllowMinutes = 60;
+
+  function renderTempAllowPicker(kind: "composer" | "attachment", findingId: string): string {
+    if (!tempAllowTarget || tempAllowTarget.kind !== kind || tempAllowTarget.id !== findingId) {
+      return "";
+    }
+
+    const presets = [5, 15, 30, 60, 240, 1440];
+
+    return `
+      <div class="pp-temp-allow" data-temp-allow-kind="${kind}" data-temp-allow-id="${findingId}">
+        <span class="pp-temp-allow__label">Allow for</span>
+        <div class="pp-temp-allow__presets">
+          ${presets
+            .map(
+              (minutes) =>
+                `<button type="button" class="pp-mini-button pp-mini-button--ghost" data-temp-allow-preset="${minutes}" data-temp-allow-kind="${kind}" data-temp-allow-id="${findingId}">${minutes}m</button>`
+            )
+            .join("")}
+        </div>
+        <div class="pp-temp-allow__custom">
+          <input
+            class="pp-temp-allow__input"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            value="${tempAllowMinutes}"
+            aria-label="Temporary allow duration in minutes"
+            data-temp-allow-minutes-input="${findingId}"
+          />
+          <span class="pp-temp-allow__suffix">minutes</span>
+        </div>
+        <div class="pp-temp-allow__actions">
+          <button type="button" class="pp-mini-button" data-temp-allow-confirm data-temp-allow-kind="${kind}" data-temp-allow-id="${findingId}">Confirm</button>
+          <button type="button" class="pp-mini-button pp-mini-button--ghost" data-temp-allow-cancel data-temp-allow-kind="${kind}" data-temp-allow-id="${findingId}">Cancel</button>
+        </div>
+      </div>
+    `;
+  }
 
   function totalFindings(): number {
     return composerFindings.length + attachmentFindings.length;
   }
 
   function render() {
+    const previousDialog = shadowRoot.querySelector<HTMLElement>(".pp-dialog");
+    const previousScrollTop = previousDialog?.scrollTop ?? 0;
+    const previousScrollLeft = previousDialog?.scrollLeft ?? 0;
+
     const total = totalFindings();
     const secretCount =
       composerFindings.filter((finding) => finding.category === "secret").length +
@@ -66,6 +109,7 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
                 <button type="button" class="pp-mini-button" data-allow-composer="${finding.id}">Allow on this site</button>
                 <button type="button" class="pp-mini-button pp-mini-button--ghost" data-temp-allow-composer="${finding.id}">Allow temporarily…</button>
               </div>
+              ${renderTempAllowPicker("composer", finding.id)}
             </div>
             <code class="pp-finding__snippet">${escapeHtml(maskSnippet(finding.match))}</code>
             <p class="pp-finding__explanation">${escapeHtml(finding.explanation)}</p>
@@ -89,6 +133,7 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
                 <button type="button" class="pp-mini-button" data-allow-attachment="${finding.id}">Allow on this site</button>
                 <button type="button" class="pp-mini-button pp-mini-button--ghost" data-temp-allow-attachment="${finding.id}">Allow temporarily…</button>
               </div>
+              ${renderTempAllowPicker("attachment", finding.id)}
             </div>
             <code class="pp-finding__snippet">${escapeHtml(finding.matchPreview)}</code>
             <p class="pp-finding__explanation">${escapeHtml(finding.explanation)}</p>
@@ -183,6 +228,12 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
         </div>
       </div>
     `;
+
+    const dialog = shadowRoot.querySelector<HTMLElement>(".pp-dialog");
+    if (dialog) {
+      dialog.scrollTop = previousScrollTop;
+      dialog.scrollLeft = previousScrollLeft;
+    }
   }
 
   render();
@@ -240,6 +291,68 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
         return;
       }
 
+      const tempAllowPresetButton = target.closest<HTMLElement>("[data-temp-allow-preset]");
+
+      if (tempAllowPresetButton?.dataset.tempAllowPreset) {
+        const minutes = Number.parseInt(tempAllowPresetButton.dataset.tempAllowPreset, 10);
+
+        if (Number.isFinite(minutes) && minutes > 0) {
+          tempAllowMinutes = minutes;
+          render();
+        }
+
+        return;
+      }
+
+      const tempAllowCancelButton = target.closest<HTMLElement>("[data-temp-allow-cancel]");
+
+      if (tempAllowCancelButton) {
+        tempAllowTarget = null;
+        tempAllowMinutes = 60;
+        render();
+        return;
+      }
+
+      const tempAllowConfirmButton = target.closest<HTMLElement>("[data-temp-allow-confirm]");
+
+      if (tempAllowConfirmButton) {
+        const kind = (tempAllowConfirmButton.dataset.tempAllowKind as "composer" | "attachment" | undefined) ?? undefined;
+        const id = tempAllowConfirmButton.dataset.tempAllowId ?? null;
+
+        if (!kind || !id) {
+          return;
+        }
+
+        const minutesInput = shadowRoot.querySelector<HTMLInputElement>(`[data-temp-allow-minutes-input="${CSS.escape(id)}"]`);
+        const minutesFromInput = minutesInput ? Number.parseInt(minutesInput.value.trim(), 10) : tempAllowMinutes;
+        const minutes = Number.isFinite(minutesFromInput) ? minutesFromInput : tempAllowMinutes;
+
+        if (!Number.isFinite(minutes) || minutes <= 0) {
+          return;
+        }
+
+        if (kind === "composer") {
+          const finding = composerFindings.find((item) => item.id === id);
+          if (!finding) {
+            return;
+          }
+          await input.onAllowComposerTemporarily(finding, minutes);
+          composerFindings = composerFindings.filter((item) => item.id !== finding.id);
+        } else {
+          const finding = attachmentFindings.find((item) => item.id === id);
+          if (!finding) {
+            return;
+          }
+          await input.onAllowAttachmentTemporarily(finding, minutes);
+          attachmentFindings = attachmentFindings.filter((item) => item.id !== finding.id);
+        }
+
+        tempAllowTarget = null;
+        tempAllowMinutes = 60;
+        render();
+        return;
+      }
+
       const composerAllowButton = target.closest<HTMLElement>("[data-allow-composer]");
 
       if (composerAllowButton?.dataset.allowComposer) {
@@ -264,23 +377,8 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
           return;
         }
 
-        const rawMinutes = window.prompt(
-          "Allow this exact match on this site for how many minutes?\nExamples: 15, 60, 240",
-          "60"
-        );
-
-        if (rawMinutes === null) {
-          return;
-        }
-
-        const minutes = Number.parseInt(rawMinutes.trim(), 10);
-
-        if (!Number.isFinite(minutes) || minutes <= 0) {
-          return;
-        }
-
-        await input.onAllowComposerTemporarily(finding, minutes);
-        composerFindings = composerFindings.filter((item) => item.id !== finding.id);
+        tempAllowTarget = { kind: "composer", id: finding.id };
+        tempAllowMinutes = 60;
         render();
         return;
       }
@@ -309,24 +407,10 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
           return;
         }
 
-        const rawMinutes = window.prompt(
-          "Allow this exact attachment match on this site for how many minutes?\nExamples: 15, 60, 240",
-          "60"
-        );
-
-        if (rawMinutes === null) {
-          return;
-        }
-
-        const minutes = Number.parseInt(rawMinutes.trim(), 10);
-
-        if (!Number.isFinite(minutes) || minutes <= 0) {
-          return;
-        }
-
-        await input.onAllowAttachmentTemporarily(finding, minutes);
-        attachmentFindings = attachmentFindings.filter((item) => item.id !== finding.id);
+        tempAllowTarget = { kind: "attachment", id: finding.id };
+        tempAllowMinutes = 60;
         render();
+        return;
       }
     });
 
@@ -337,6 +421,21 @@ export async function openReviewModal(input: ReviewModalInput): Promise<ReviewDe
 const modalStyles = `
   :host {
     all: initial;
+    color-scheme: dark;
+    --pp-bg-1: #343541;
+    --pp-bg-2: #343541;
+    --pp-panel: #40414f;
+    --pp-panel-strong: #40414f;
+    --pp-stroke: rgba(236, 236, 241, 0.12);
+    --pp-text: #ececf1;
+    --pp-muted: rgba(236, 236, 241, 0.64);
+    --pp-ink-soft: rgba(236, 236, 241, 0.78);
+    --pp-accent: #10a37f;
+    --pp-accent-soft: rgba(16, 163, 127, 0.16);
+    --pp-secret: #ef4444;
+    --pp-secret-soft: rgba(239, 68, 68, 0.16);
+    --pp-pii: #f59e0b;
+    --pp-pii-soft: rgba(245, 158, 11, 0.16);
   }
 
   * {
@@ -351,8 +450,8 @@ const modalStyles = `
     display: grid;
     place-items: center;
     background:
-      radial-gradient(circle at top left, rgba(15, 118, 110, 0.18), transparent 22%),
-      rgba(8, 12, 18, 0.62);
+      radial-gradient(circle at top left, rgba(16, 163, 127, 0.14), transparent 22%),
+      rgba(0, 0, 0, 0.62);
     padding: 20px;
   }
 
@@ -361,12 +460,9 @@ const modalStyles = `
     max-height: min(90vh, 960px);
     overflow: auto;
     border-radius: 28px;
-    background:
-      radial-gradient(circle at top right, rgba(15, 118, 110, 0.14), transparent 28%),
-      radial-gradient(circle at top left, rgba(194, 65, 12, 0.12), transparent 24%),
-      linear-gradient(180deg, #fffdf9 0%, #fff8ef 100%);
-    color: #1f2937;
-    border: 1px solid rgba(31, 41, 55, 0.12);
+    background: linear-gradient(180deg, var(--pp-bg-1) 0%, var(--pp-bg-2) 100%);
+    color: var(--pp-text);
+    border: 1px solid var(--pp-stroke);
     box-shadow: 0 32px 100px rgba(10, 14, 21, 0.34);
     padding: 24px;
   }
@@ -396,7 +492,7 @@ const modalStyles = `
     text-transform: uppercase;
     letter-spacing: 0.14em;
     font-size: 12px;
-    color: rgba(208, 255, 245, 0.8);
+    color: rgba(236, 236, 241, 0.8);
   }
 
   #pp-title {
@@ -409,7 +505,7 @@ const modalStyles = `
   .pp-copy {
     margin: 0;
     max-width: 58ch;
-    color: rgba(242, 247, 255, 0.8);
+    color: rgba(236, 236, 241, 0.78);
     line-height: 1.5;
   }
 
@@ -436,9 +532,9 @@ const modalStyles = `
   .pp-metric {
     padding: 14px;
     border-radius: 18px;
-    background: rgba(255, 255, 255, 0.72);
-    border: 1px solid rgba(31, 41, 55, 0.08);
-    box-shadow: 0 14px 30px rgba(48, 34, 18, 0.08);
+    background: rgba(64, 65, 79, 0.9);
+    border: 1px solid var(--pp-stroke);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.28);
   }
 
   .pp-metric strong {
@@ -454,16 +550,16 @@ const modalStyles = `
   .pp-footer-note,
   .pp-finding__explanation {
     font-size: 12px;
-    color: #6b7280;
+    color: var(--pp-muted);
   }
 
   .pp-block {
     margin-top: 16px;
     padding: 14px;
     border-radius: 22px;
-    border: 1px solid rgba(31, 41, 55, 0.08);
-    background: rgba(255, 255, 255, 0.68);
-    box-shadow: 0 14px 30px rgba(48, 34, 18, 0.07);
+    border: 1px solid var(--pp-stroke);
+    background: rgba(64, 65, 79, 0.72);
+    box-shadow: 0 14px 30px rgba(0, 0, 0, 0.24);
   }
 
   .pp-section-title {
@@ -471,14 +567,15 @@ const modalStyles = `
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    color: #4b5563;
+    color: var(--pp-muted);
   }
 
   .pp-preview {
     margin-top: 12px;
     border-radius: 18px;
-    border: 1px solid rgba(31, 41, 55, 0.12);
-    background: rgba(255, 255, 255, 0.88);
+    border: 1px solid var(--pp-stroke);
+    background: rgba(52, 53, 65, 0.72);
+    color: var(--pp-text);
     padding: 16px;
     white-space: pre-wrap;
     line-height: 1.55;
@@ -487,7 +584,7 @@ const modalStyles = `
   }
 
   .pp-preview--replacement {
-    background: rgba(244, 251, 250, 0.92);
+    background: var(--pp-accent-soft);
   }
 
   .pp-mark {
@@ -497,18 +594,18 @@ const modalStyles = `
   }
 
   .pp-mark--secret {
-    background: rgba(180, 35, 24, 0.14);
-    color: #7f1d1d;
+    background: var(--pp-secret-soft);
+    color: var(--pp-text);
   }
 
   .pp-mark--pii {
-    background: rgba(194, 65, 12, 0.16);
-    color: #9a3412;
+    background: var(--pp-pii-soft);
+    color: var(--pp-text);
   }
 
   .pp-mark--replacement {
-    background: rgba(15, 118, 110, 0.12);
-    color: #0f766e;
+    background: var(--pp-accent-soft);
+    color: var(--pp-text);
   }
 
   .pp-finding-list {
@@ -521,8 +618,8 @@ const modalStyles = `
 
   .pp-finding {
     border-radius: 16px;
-    border: 1px solid rgba(31, 41, 55, 0.1);
-    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid var(--pp-stroke);
+    background: rgba(64, 65, 79, 0.9);
     padding: 12px;
   }
 
@@ -544,25 +641,25 @@ const modalStyles = `
   }
 
   .pp-badge--secret {
-    background: rgba(180, 35, 24, 0.12);
-    color: #b42318;
+    background: var(--pp-secret-soft);
+    color: var(--pp-secret);
   }
 
   .pp-badge--pii {
-    background: rgba(194, 65, 12, 0.14);
-    color: #c2410c;
+    background: var(--pp-pii-soft);
+    color: var(--pp-pii);
   }
 
   .pp-badge--neutral {
-    background: rgba(51, 65, 85, 0.08);
-    color: #475569;
+    background: rgba(236, 236, 241, 0.1);
+    color: rgba(236, 236, 241, 0.78);
   }
 
   .pp-finding__snippet {
     display: block;
     white-space: pre-wrap;
     word-break: break-word;
-    color: #111827;
+    color: var(--pp-text);
     margin: 10px 0 8px;
   }
 
@@ -574,7 +671,7 @@ const modalStyles = `
   .pp-why-list {
     margin: 10px 0 0 16px;
     padding: 0;
-    color: #4b5563;
+    color: var(--pp-ink-soft);
     line-height: 1.5;
   }
 
@@ -589,6 +686,7 @@ const modalStyles = `
   .pp-mode-button {
     border: 0;
     cursor: pointer;
+    color: var(--pp-text);
   }
 
   .pp-button {
@@ -596,6 +694,9 @@ const modalStyles = `
     padding: 12px 18px;
     font-size: 14px;
     font-weight: 700;
+    background: rgba(236, 236, 241, 0.1);
+    border: 1px solid var(--pp-stroke);
+  }
 
   .pp-allow-row {
     display: flex;
@@ -605,26 +706,21 @@ const modalStyles = `
     flex-wrap: wrap;
   }
 
-  .pp-mini-button--ghost {
-    background: rgba(15, 23, 42, 0.06);
-    color: rgba(15, 23, 42, 0.8);
-  }
-  }
-
-  .pp-button--ghost,
-  .pp-mini-button,
-  .pp-mode-button {
-    background: rgba(148, 163, 184, 0.14);
-    color: #334155;
+  .pp-button--ghost {
+    background: transparent;
+    color: rgba(236, 236, 241, 0.86);
+    border: 1px solid rgba(236, 236, 241, 0.16);
   }
 
   .pp-button--primary {
-    background: linear-gradient(135deg, #0f766e, #0b9487);
+    background: linear-gradient(135deg, var(--pp-accent), #0b9487);
     color: white;
+    border: 1px solid rgba(16, 163, 127, 0.32);
   }
 
   .pp-button--secondary {
-    background: linear-gradient(135deg, #10141e, #334155);
+    background: rgba(236, 236, 241, 0.08);
+    border: 1px solid var(--pp-stroke);
   }
 
   .pp-mini-button {
@@ -632,28 +728,56 @@ const modalStyles = `
     border-radius: 999px;
     font-size: 12px;
     font-weight: 700;
+    background: rgba(236, 236, 241, 0.1);
+    border: 1px solid var(--pp-stroke);
+  }
+
+  .pp-mini-button--ghost {
+    background: transparent;
+    color: rgba(236, 236, 241, 0.82);
+    border: 1px solid rgba(236, 236, 241, 0.16);
   }
 
   .pp-mode-row {
-    display: flex;
+    display: inline-flex;
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 6px;
+    padding: 6px;
+    border-radius: 999px;
+    background: rgba(236, 236, 241, 0.06);
+    border: 1px solid var(--pp-stroke);
   }
 
   .pp-mode-button {
-    padding: 8px 10px;
+    padding: 8px 12px;
     border-radius: 999px;
     font-size: 12px;
-    font-weight: 700;
+    font-weight: 650;
+    background: transparent;
+    border: 1px solid transparent;
+    color: rgba(236, 236, 241, 0.78);
+  }
+
+  .pp-mode-button:hover {
+    background: rgba(236, 236, 241, 0.08);
+    color: rgba(236, 236, 241, 0.92);
+  }
+
+  .pp-mode-button:focus-visible,
+  .pp-button:focus-visible,
+  .pp-mini-button:focus-visible {
+    outline: 2px solid rgba(16, 163, 127, 0.62);
+    outline-offset: 2px;
   }
 
   .pp-mode-button.is-active {
-    background: rgba(15, 118, 110, 0.14);
-    color: #0f766e;
+    background: var(--pp-accent-soft);
+    color: rgba(236, 236, 241, 0.94);
+    border-color: rgba(16, 163, 127, 0.42);
   }
 
   .pp-empty-note {
-    color: #6b7280;
+    color: var(--pp-muted);
   }
 
   @media (max-width: 760px) {

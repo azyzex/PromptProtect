@@ -1,4 +1,4 @@
-import { MAX_ALLOW_RULES, STORAGE_KEYS, TEXT_ATTACHMENT_EXTENSIONS } from "../shared/defaults";
+import { DEFAULT_SETTINGS, MAX_ALLOW_RULES, STORAGE_KEYS, TEXT_ATTACHMENT_EXTENSIONS } from "../shared/defaults";
 import { detectSensitiveContent } from "../shared/detector";
 import { applyRedactionMode, maskSnippet } from "../shared/redaction";
 import { runtimeApi } from "../shared/runtime";
@@ -63,7 +63,7 @@ async function bootstrap() {
     return;
   }
 
-  settingsCache = await runtimeApi.getSettings().catch(() => null);
+  settingsCache = await runtimeApi.getSettings().catch(() => DEFAULT_SETTINGS);
   pageReady = true;
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -144,26 +144,22 @@ function installUiObserver() {
   window.addEventListener("visibilitychange", scheduleUiRefresh, true);
 }
 
-async function getSettings(): Promise<PromptProtectSettings | null> {
+async function getSettings(): Promise<PromptProtectSettings> {
   if (settingsCache) {
     return settingsCache;
   }
 
-  settingsCache = await runtimeApi.getSettings().catch(() => null);
+  settingsCache = await runtimeApi.getSettings().catch(() => DEFAULT_SETTINGS);
   return settingsCache;
 }
 
-function getCurrentProfile(settings: PromptProtectSettings | null): SiteProfile | null {
-  if (!settings) {
-    return null;
-  }
-
+function getCurrentProfile(settings: PromptProtectSettings): SiteProfile | null {
   return settings.siteProfiles[window.location.hostname] ?? null;
 }
 
-function isGuardEnabled(settings: PromptProtectSettings | null): settings is PromptProtectSettings {
+function isGuardEnabled(settings: PromptProtectSettings): settings is PromptProtectSettings {
   const profile = getCurrentProfile(settings);
-  return Boolean(settings?.enabled && profile?.enabled);
+  return Boolean(settings.enabled && profile?.enabled);
 }
 
 function getPreferredRedactionMode(settings: PromptProtectSettings): RedactionMode {
@@ -410,7 +406,8 @@ async function scanAttachmentFiles(files: File[], scope: string): Promise<number
 
   if (totalFindings > 0) {
     updateLastInlineScan("attachment", totalFindings);
-    await runtimeApi.appendLog({
+    await runtimeApi
+      .appendLog({
       hostname: window.location.hostname,
       siteLabel: getSupportedSiteForHostname(window.location.hostname)?.label ?? window.location.hostname,
       action: "attachment_flagged",
@@ -421,7 +418,8 @@ async function scanAttachmentFiles(files: File[], scope: string): Promise<number
       trigger: "attachment",
       mode: "none",
       note: "PromptProtect found potential issues in an attached file."
-    });
+    })
+      .catch(() => null);
   }
 
   return totalFindings;
@@ -620,7 +618,8 @@ async function logFinding(
   const site = getSupportedSiteForHostname(window.location.hostname);
   const attachmentFindings = aggregateAttachmentFindings();
 
-  await runtimeApi.appendLog({
+  await runtimeApi
+    .appendLog({
     hostname: window.location.hostname,
     siteLabel: site?.label ?? window.location.hostname,
     action,
@@ -632,7 +631,8 @@ async function logFinding(
     trigger: options.trigger,
     mode: options.mode,
     note: options.note
-  });
+  })
+    .catch(() => null);
 }
 
 async function addAllowRule(ruleId: string, allowFingerprint: string, label: string, expiresAt?: string) {
@@ -664,10 +664,12 @@ async function addAllowRule(ruleId: string, allowFingerprint: string, label: str
 
   const remaining = settings.exactAllowRules.filter((rule, index) => index !== existingIndex);
 
-  settingsCache = await runtimeApi.saveSettings({
-    ...settings,
-    exactAllowRules: [nextEntry, ...remaining].slice(0, MAX_ALLOW_RULES)
-  });
+  settingsCache = await runtimeApi
+    .saveSettings({
+      ...settings,
+      exactAllowRules: [nextEntry, ...remaining].slice(0, MAX_ALLOW_RULES)
+    })
+    .catch(() => settings);
 }
 
 async function allowTemporarily(ruleId: string, allowFingerprint: string, label: string, minutes: number) {
