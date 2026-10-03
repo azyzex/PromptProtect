@@ -28,7 +28,7 @@ When something is flagged, a review step highlights each match and offers three 
 | Mask | `sk-p**************a7` |
 | Full redact | `[REDACTED]` |
 
-…or you send it as-is, on purpose.
+…or pick **Ignore Once & Send** when it really is meant to go out.
 
 ## Privacy
 
