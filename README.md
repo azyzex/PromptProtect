@@ -1,74 +1,67 @@
 # PromptProtect
 
-PromptProtect is a Chrome extension that helps stop accidental leaks to web-based LLM chat tools. It watches supported chat composers locally, detects likely secrets or basic PII before send, and forces a quick review step with redaction.
+**Catch secrets before you paste them into an AI chat.**
 
-## MVP in this repo
+PromptProtect is a Chrome extension that watches the message box on ChatGPT, Claude and Gemini. If what you're about to send looks like an API key, a private key, a token or personal data, it stops the send and shows you exactly what it found — then lets you send a redacted version instead. Everything runs locally in your browser.
 
-- Small default site scope: ChatGPT, Claude, and Gemini web UIs
-- Local pattern detection for:
-  - OpenAI-style keys
-  - AWS access keys
-  - GitHub tokens
-  - JWTs
-  - PEM private key blocks
-  - Structured secret assignments, bearer tokens, and connection strings
-  - Emails and phone numbers
-- On-paste and on-send interception with inline warnings, highlighted matches, and multiple rewrite modes
-- Attachment scanning for common text file types before send
-- Local-only event logs and analytics that store counts and rule labels, not raw sensitive text
-- Premium popup dashboard for per-site profiles, allowlists, rule packs, diagnostics, and a prompt test lab
+![PromptProtect](media/preview.webp)
 
-## Quick Start
+Landing page: **[azyzex.github.io/PromptProtect](https://azyzex.github.io/PromptProtect/)**
 
-1. Install dependencies:
+## What it catches
+
+- OpenAI-style API keys, AWS access keys, GitHub tokens
+- JWTs and PEM private-key blocks
+- Secret assignments (`API_KEY=…`), bearer tokens and database connection strings
+- Emails and phone numbers
+- Your own rules — custom regex patterns, stored locally
+
+It checks text as you paste it and again on send, and scans common text attachments before they go out.
+
+## How you fix it
+
+When something is flagged, a review step highlights each match and offers three ways to send it safely:
+
+| Mode | `sk-proj-4f9Kx2Lm8Qa7` becomes |
+| --- | --- |
+| Safe rewrite | `<OPENAI_API_KEY>` |
+| Mask | `sk-p**************a7` |
+| Full redact | `[REDACTED]` |
+
+…or you send it as-is, on purpose.
+
+## Privacy
+
+- Detection is 100 % local — nothing is sent anywhere.
+- The extension only runs on a small allowlist of sites, so its permissions stay tight.
+- Its logs store counts and rule names, never the sensitive text itself.
+
+## Install (from source)
 
 ```bash
 npm install
-```
-
-2. Build the extension:
-
-```bash
 npm run build
 ```
 
-3. Load it in Chrome:
+Then in Chrome: `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick the `dist` folder.
 
-- Open `chrome://extensions`
-- Enable `Developer mode`
-- Click `Load unpacked`
-- Select the repo's `dist` folder
+## Project structure
 
-4. Open the PromptProtect popup:
-
-- Click the PromptProtect toolbar action in Chrome
-
-## Git Setup
-
-This workspace is initialized on the `main` branch and wired to:
-
-```text
-https://github.com/azyzex/PromptProtect.git
+```
+src/
+├── content/    composer detection, paste + attachment scanning, warnings, review modal
+├── background/ storage and local telemetry
+├── popup/      per-site profiles, allowlists, rule packs, diagnostics, prompt test lab
+├── sidepanel/  side panel UI
+└── shared/     detection engine, redaction helpers, site definitions, types
+static/         manifest.json, popup and side-panel HTML/CSS, icons
+docs/           landing page (GitHub Pages)
 ```
 
-If you want to publish the local work once your Git identity is configured:
+## Built with
 
-```bash
-git add .
-git commit -m "Initial PromptProtect MVP"
-git push -u origin main
-```
+TypeScript · Chrome Extensions (Manifest V3) · esbuild
 
-## Project Structure
+---
 
-- `src/content`: composer detection, paste and attachment scanning, inline warnings, review modal
-- `src/background`: storage and local telemetry coordination
-- `src/popup`: popup console, analytics, diagnostics, rule packs, and test lab
-- `src/shared`: detection engine, redaction helpers, site definitions, shared types
-- `static`: `manifest.json` and popup HTML/CSS
-
-## Notes
-
-- PromptProtect only runs on a small manifest allowlist to keep permissions tight.
-- Custom rules are local regex patterns stored in extension storage.
-- The current allowlist UI lets you toggle supported hosts on and off. Expanding beyond those hosts requires updating the manifest host permissions.
+Made by [Mohamed Aziz Guenni](https://azyzex.github.io/AzyzPortfolio/)
